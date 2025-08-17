@@ -7,6 +7,7 @@ const path = require("path");
 
 const chatRoutes = require("./routes/chat");
 const chatHistoryRoutes = require("./routes/chat-history");
+const jobChatRoutes = require("./routes/job-chat");
 const { DataLoader } = require("./data/loader");
 const { AIService } = require("./services/ai-service");
 const { connectDB } = require("./db");
@@ -47,9 +48,10 @@ const dataLoader = DataLoader.getInstance();
 const aiService = new AIService();
 
 // Routes
-console.log("Registering routes: /api/chat, /api/data, /api/search, /health");
+console.log("Registering routes: /api/chat, /api/chat-history, /api/job-chat, /api/data, /api/search, /health");
 app.use("/api/chat", chatRoutes);
 app.use("/api/chat-history", chatHistoryRoutes);
+app.use("/api/job-chat", jobChatRoutes);
 
 // New comprehensive data API endpoints
 app.get("/api/data/overview", async (req, res) => {
@@ -114,6 +116,16 @@ app.get("/api/profiles/:uuid", async (req, res) => {
     res.json({ success: true, data: profile });
   } catch (error) {
     console.error("❌ Error getting profile:", error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.get("/api/jobs", async (req, res) => {
+  try {
+    const data = await dataLoader.getData();
+    res.json({ success: true, data: data.jobs });
+  } catch (error) {
+    console.error("❌ Error getting jobs:", error.message);
     res.status(500).json({ success: false, error: error.message });
   }
 });

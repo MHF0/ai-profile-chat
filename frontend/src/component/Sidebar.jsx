@@ -90,6 +90,10 @@ const Sidebar = ({ isOpen, onClose, onQuickAction, suggestions, dataOverview }) 
                   <div className="text-xs text-gray-500">View data analytics and trends</div>
                 </div>
                 <div className="p-3 rounded-lg bg-gray-50 text-sm text-gray-600">
+                  <div className="font-medium">Jobs</div>
+                  <div className="text-xs text-gray-500">Browse jobs and start job-specific chats</div>
+                </div>
+                <div className="p-3 rounded-lg bg-gray-50 text-sm text-gray-600">
                   <div className="font-medium">Search</div>
                   <div className="text-xs text-gray-500">Find specific candidates and jobs</div>
                 </div>

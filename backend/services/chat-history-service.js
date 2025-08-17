@@ -12,24 +12,58 @@ class ChatHistoryService {
   }
 
   // Create or get existing chat session
-  async getOrCreateSession(sessionId, userId = 'anonymous') {
+  async getOrCreateSession(sessionId, userId = 'anonymous', jobInfo = null) {
     try {
       let session = await ChatHistory.findOne({ session_id: sessionId });
       
       if (!session) {
-        session = new ChatHistory({
+        // Create new session with job info if provided
+        const sessionData = {
           session_id: sessionId,
           user_id: userId,
           messages: [],
           total_messages: 0
-        });
+        };
+
+        if (jobInfo) {
+          sessionData.job_id = jobInfo.uuid || jobInfo.id;
+          sessionData.job_title = jobInfo.title;
+          sessionData.company_name = jobInfo.company;
+        }
+
+        session = new ChatHistory(sessionData);
         await session.save();
-        console.log(`✅ Created new chat session: ${sessionId}`);
+        console.log(`✅ Created new chat session: ${sessionId}${jobInfo ? ` for job: ${jobInfo.title}` : ''}`);
       }
       
       return session;
     } catch (error) {
       console.error('❌ Error getting/creating chat session:', error.message);
+      throw error;
+    }
+  }
+
+  // Create a new job-specific chat session
+  async createJobSession(userId, jobInfo) {
+    try {
+      const sessionId = this.generateSessionId();
+      
+      const session = new ChatHistory({
+        session_id: sessionId,
+        user_id: userId,
+        job_id: jobInfo.uuid || jobInfo.id,
+        job_title: jobInfo.title,
+        company_name: jobInfo.company,
+        messages: [],
+        total_messages: 0
+      });
+      
+      await session.save();
+      console.log(`✅ Created new job-specific chat session: ${sessionId} for job: ${jobInfo.title}`);
+      
+      return session;
+    } catch (error) {
+      console.error('❌ Error creating job-specific chat session:', error.message);
       throw error;
     }
   }
@@ -87,13 +121,29 @@ class ChatHistoryService {
     }
   }
 
-  // Get all sessions for a user
+  // Get all sessions for a specific job
+  async getJobSessions(jobId, limit = 20) {
+    try {
+      const sessions = await ChatHistory.find({ job_id: jobId })
+        .sort({ last_activity: -1 })
+        .limit(limit)
+        .select('session_id user_id job_title company_name total_messages created_at last_activity')
+        .lean();
+      
+      return sessions;
+    } catch (error) {
+      console.error('❌ Error getting job sessions:', error.message);
+      throw error;
+    }
+  }
+
+  // Get all sessions for a user with job information
   async getUserSessions(userId, limit = 20) {
     try {
       const sessions = await ChatHistory.find({ user_id: userId })
         .sort({ last_activity: -1 })
         .limit(limit)
-        .select('session_id total_messages created_at last_activity')
+        .select('session_id job_id job_title company_name total_messages created_at last_activity')
         .lean();
       
       return sessions;

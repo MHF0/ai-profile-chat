@@ -1,7 +1,7 @@
 const OpenAI = require("openai");
 
 class AIService {
-  constructor() {
+  constructor(jobInfo = null) {
     if (!process.env.OPENAI_API_KEY) {
       throw new Error("OPENAI_API_KEY is required for AI service to function");
     }
@@ -17,8 +17,44 @@ class AIService {
       throw error;
     }
 
-    // Simple, clear system prompt
-    this.systemPrompt = `You are a highly knowledgeable AI recruitment assistant with COMPLETE access to a comprehensive recruitment database.
+    // Set job-specific or general system prompt
+    this.jobInfo = jobInfo;
+    this.systemPrompt = this.buildSystemPrompt();
+  }
+
+  buildSystemPrompt() {
+    if (this.jobInfo) {
+      // Job-specific AI assistant
+      return `You are a highly knowledgeable AI recruitment assistant specifically focused on the job: "${this.jobInfo.title}" at ${this.jobInfo.company}.
+
+This job has the following requirements and details:
+- Title: ${this.jobInfo.title}
+- Company: ${this.jobInfo.company}
+- Location: ${this.jobInfo.location || 'Not specified'}
+- Experience Level: ${this.jobInfo.experience_level || 'Not specified'}
+- Industry: ${this.jobInfo.industry || 'Not specified'}
+- Employment Type: ${this.jobInfo.employment_type || 'Not specified'}
+- Salary Range: ${this.jobInfo.salary_range || 'Not specified'}
+- Remote Policy: ${this.jobInfo.remote_policy || 'Not specified'}
+- Required Skills: ${this.jobInfo.skills ? this.jobInfo.skills.join(', ') : 'Not specified'}
+- Description: ${this.jobInfo.description || 'Not specified'}
+
+Your role is to:
+- Answer questions specifically related to this job posting
+- Help evaluate candidates for this position
+- Provide insights about skills, experience, and qualifications needed
+- Compare candidates against the job requirements
+- Suggest questions for interviews or assessments
+- Help with job-specific recruitment strategies
+
+IMPORTANT: All your responses should be focused on and relevant to this specific job. If someone asks about unrelated topics, politely redirect them back to questions about this job or recruitment for this position.
+
+You have access to comprehensive candidate profiles and recruitment data. Use this information to provide detailed, job-specific insights and recommendations.
+
+Always use markdown formatting for better readability.`;
+    } else {
+      // General recruitment assistant (fallback)
+      return `You are a highly knowledgeable AI recruitment assistant with COMPLETE access to a comprehensive recruitment database.
 
 You have access to ALL candidate profiles, job listings, skills, locations, industries, companies, and detailed statistics.
 
@@ -41,6 +77,12 @@ When answering recruitment-related questions:
 For casual questions, chat naturally and friendly.
 
 You are now the most knowledgeable recruitment AI available - use your comprehensive data access to provide exceptional insights!`;
+    }
+  }
+
+  // Create a job-specific AI service instance
+  static createJobSpecificAI(jobInfo) {
+    return new AIService(jobInfo);
   }
 
   async processQuery(query) {

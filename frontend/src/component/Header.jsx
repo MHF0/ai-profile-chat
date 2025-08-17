@@ -1,10 +1,11 @@
 import React from "react";
-import { Menu, MessageCircle, BarChart3, Search, Bot } from "lucide-react";
+import { Menu, MessageCircle, BarChart3, Search, Bot, Briefcase } from "lucide-react";
 
 const Header = ({ currentView, onViewChange, onMenuClick }) => {
   const views = [
     { id: "chat", label: "Chat", icon: MessageCircle, color: "text-purple-600" },
     { id: "insights", label: "Insights", icon: BarChart3, color: "text-blue-600" },
+    { id: "jobs", label: "Jobs", icon: Briefcase, color: "text-orange-600" },
     { id: "search", label: "Search", icon: Search, color: "text-green-600" },
   ];
 

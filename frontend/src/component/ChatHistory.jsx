@@ -91,7 +91,7 @@ const ChatHistory = ({ isOpen, onClose, onLoadSession, onExportHistory, sessionI
 
     try {
       const response = await axios.get(
-        `http://localhost:5000/api/chat-history/${sessionId}/search?query=${encodeURIComponent(
+        `/api/chat-history/${sessionId}/search?query=${encodeURIComponent(
           query
         )}`
       );
@@ -281,10 +281,10 @@ const ChatHistory = ({ isOpen, onClose, onLoadSession, onExportHistory, sessionI
                     </div>
                     <div>
                       <h4 className="font-semibold text-gray-900">
-                        Session {session.session_id.slice(-8)}
+                        {session.job_title ? `${session.job_title}` : `Session ${session.session_id.slice(-8)}`}
                       </h4>
                       <p className="text-sm text-gray-500">
-                        {getSessionPreview(session)}
+                        {session.company_name ? `${session.company_name} • ` : ''}{getSessionPreview(session)}
                       </p>
                     </div>
                   </div>
@@ -351,9 +351,10 @@ const ChatHistory = ({ isOpen, onClose, onLoadSession, onExportHistory, sessionI
           </button>
           <div>
             <h2 className="text-xl font-bold text-gray-900">
-              Session {selectedSession?.session_id?.slice(-8)}
+              {selectedSession?.job_title ? selectedSession.job_title : `Session ${selectedSession?.session_id?.slice(-8)}`}
             </h2>
             <p className="text-sm text-gray-500">
+              {selectedSession?.company_name ? `${selectedSession.company_name} • ` : ''}
               {selectedSession?.total_messages} messages •{" "}
               {formatDate(selectedSession?.created_at)}
             </p>

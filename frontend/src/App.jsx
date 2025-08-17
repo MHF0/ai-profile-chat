@@ -7,6 +7,7 @@ import DataInsights from "./component/DataInsights";
 import ProfileSearch from "./component/ProfileSearch";
 import QuickActions from "./component/QuickActions";
 import ChatHistory from "./component/ChatHistory";
+import JobListings from "./component/JobListings";
 
 const API_BASE_URL = "http://localhost:5000/api";
 
@@ -24,6 +25,7 @@ const AIRecruitmentChat = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [sessionId, setSessionId] = useState("");
   const [showHistory, setShowHistory] = useState(false);
+  const [selectedJob, setSelectedJob] = useState(null);
   const messagesEndRef = useRef(null);
   const chatContainerRef = useRef(null);
 
@@ -154,24 +156,41 @@ const AIRecruitmentChat = () => {
     setIsLoading(true);
 
     try {
-      // Use the new AI analysis endpoint with session ID
-      const response = await fetch(`${API_BASE_URL}/ai/analyze`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          query: inputValue,
-          analysis_type: "general_query",
-          session_id: sessionId
-        }),
-      });
+      let response;
+      
+      if (selectedJob) {
+        // Use job-specific chat endpoint
+        response = await fetch(`${API_BASE_URL}/job-chat/message`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            message: inputValue,
+            session_id: sessionId,
+            job_id: selectedJob.uuid || selectedJob.id
+          }),
+        });
+      } else {
+        // Use general AI analysis endpoint
+        response = await fetch(`${API_BASE_URL}/ai/analyze`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            query: inputValue,
+            analysis_type: "general_query",
+            session_id: sessionId
+          }),
+        });
+      }
 
       if (response.ok) {
         const data = await response.json();
         const aiMessage = {
           id: (Date.now() + 1).toString(),
-          text: data.data.response,
+          text: data.data.response || data.data.message,
           isUser: false,
           timestamp: new Date(),
         };
@@ -193,9 +212,57 @@ const AIRecruitmentChat = () => {
     }
   };
 
-  const handleQuickAction = (suggestion) => {
-    setInputValue(suggestion);
+  const handleQuickAction = async (action) => {
+    if (action.toLowerCase().includes("search")) {
+      setCurrentView("search");
+      return;
+    }
+    
+    setInputValue(action);
+    handleSubmit(new Event("submit"));
+  };
+
+  const handleJobSelection = async (job) => {
+    setSelectedJob(job);
     setCurrentView("chat");
+    
+    // Create a new job-specific chat session
+    try {
+      const response = await fetch(`${API_BASE_URL}/job-chat/sessions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          job_id: job.uuid || job.id,
+          user_id: 'anonymous'
+        })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setSessionId(data.data.session_id);
+        
+        // Clear existing messages and add job-specific welcome message
+        setMessages([{
+          id: Date.now().toString(),
+          text: `I'm now your AI recruitment assistant for the **${job.title}** position at **${job.company}**. I have complete access to this job's requirements and can help you with:\n\n• Job-specific questions and analysis\n• Candidate matching for this position\n• Requirements clarification\n• Interview preparation\n• Any recruitment-related queries\n\nWhat would you like to know about this job?`,
+          isUser: false,
+          timestamp: new Date(),
+          metadata: { job_id: job.uuid || job.id, type: 'job_welcome' }
+        }]);
+      }
+    } catch (error) {
+      console.error("❌ Error creating job chat session:", error);
+    }
+  };
+
+  const clearJobSelection = () => {
+    setSelectedJob(null);
+    // Reset to general chat session
+    const existingSessionId = localStorage.getItem('chat_session_id');
+    setSessionId(existingSessionId);
+    setMessages([]);
   };
 
   const handleSearch = async (query, filters = {}) => {
@@ -295,20 +362,42 @@ const AIRecruitmentChat = () => {
         return (
           <div className="flex-1 flex flex-col h-full">
             {/* Chat Header */}
-            <div className="bg-white border-b border-gray-200 px-6 py-4">
+            <div className="bg-white border-b border-gray-200 p-6 shadow-sm">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
                   <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-blue-600 rounded-full flex items-center justify-center">
                     <Bot className="w-5 h-5 text-white" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-semibold text-gray-900">AI Recruitment Chat</h2>
-                    <p className="text-sm text-gray-500">Ask me anything about recruitment or just chat!</p>
+                    {selectedJob ? (
+                      <>
+                        <h2 className="text-lg font-semibold text-gray-900">
+                          {selectedJob.title} - {selectedJob.company}
+                        </h2>
+                        <p className="text-sm text-gray-500">
+                          Job-specific AI recruitment assistant
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <h2 className="text-lg font-semibold text-gray-900">AI Recruitment Chat</h2>
+                        <p className="text-sm text-gray-500">Ask me anything about recruitment or just chat!</p>
+                      </>
+                    )}
                   </div>
                 </div>
                 
                 {/* Chat History Controls */}
                 <div className="flex items-center space-x-2">
+                  {selectedJob && (
+                    <button
+                      onClick={clearJobSelection}
+                      className="px-3 py-2 text-sm text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-gray-200 hover:border-red-200"
+                      title="Clear Job Selection"
+                    >
+                      Clear Job
+                    </button>
+                  )}
                   <button
                     onClick={() => setShowHistory(true)}
                     className="p-2 text-gray-600 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
@@ -409,7 +498,10 @@ const AIRecruitmentChat = () => {
                       type="text"
                       value={inputValue}
                       onChange={(e) => setInputValue(e.target.value)}
-                      placeholder="Ask me anything about recruitment or just chat..."
+                      placeholder={selectedJob 
+                        ? `Ask me about the ${selectedJob.title} position at ${selectedJob.company}...`
+                        : "Ask me anything about recruitment or just chat..."
+                      }
                       className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-700 placeholder-gray-400 transition-all duration-200"
                       disabled={isLoading}
                     />
@@ -430,7 +522,10 @@ const AIRecruitmentChat = () => {
                 {/* Input Tips */}
                 <div className="mt-3 text-center">
                   <p className="text-xs text-gray-400">
-                    💡 Try: "Show me top candidates" • "Find Python developers" • "How are you?"
+                    {selectedJob 
+                      ? `💡 Try: "What skills are required?" • "Find candidates for this role" • "What's the salary range?"`
+                      : `💡 Try: "Show me top candidates" • "Find Python developers" • "How are you?"`
+                    }
                   </p>
                 </div>
               </form>
@@ -453,6 +548,15 @@ const AIRecruitmentChat = () => {
             searchResults={searchResults}
             searchQuery={searchQuery}
             onSearch={handleSearch}
+          />
+        );
+
+      case "jobs":
+        return (
+          <JobListings
+            dataOverview={dataOverview}
+            statistics={statistics}
+            onJobSelect={handleJobSelection}
           />
         );
 

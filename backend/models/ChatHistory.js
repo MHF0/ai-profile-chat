@@ -11,6 +11,19 @@ const chatHistorySchema = new mongoose.Schema({
     default: 'anonymous',
     index: true
   },
+  job_id: {
+    type: String,
+    required: true,
+    index: true
+  },
+  job_title: {
+    type: String,
+    required: true
+  },
+  company_name: {
+    type: String,
+    required: true
+  },
   messages: [{
     id: {
       type: String,
@@ -56,6 +69,8 @@ const chatHistorySchema = new mongoose.Schema({
 // Indexes for better query performance
 chatHistorySchema.index({ session_id: 1, created_at: -1 });
 chatHistorySchema.index({ user_id: 1, last_activity: -1 });
+chatHistorySchema.index({ job_id: 1, last_activity: -1 });
+chatHistorySchema.index({ user_id: 1, job_id: 1, last_activity: -1 });
 
 // Update last_activity when messages are added
 chatHistorySchema.pre('save', function(next) {
