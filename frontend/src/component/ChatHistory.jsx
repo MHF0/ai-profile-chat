@@ -13,6 +13,7 @@ import {
   Eye,
   FileText,
 } from "lucide-react";
+import axios from "axios";
 
 const ChatHistory = ({ isOpen, onClose, onLoadSession, onExportHistory }) => {
   const [sessions, setSessions] = useState([]);
@@ -32,13 +33,13 @@ const ChatHistory = ({ isOpen, onClose, onLoadSession, onExportHistory }) => {
     try {
       setIsLoading(true);
       console.log("🔄 Loading user sessions...");
-      const response = await fetch(
+      const response = await axios.get(
         `http://localhost:5000/api/chat-history/user/anonymous/sessions?limit=50`
       );
       console.log("📡 Response status:", response.status);
 
-      if (response.ok) {
-        const data = await response.json();
+      if (response.status === 200) {
+        const data = await response.data;
         console.log("📊 Sessions data:", data);
         setSessions(data.data || []);
       } else {
@@ -66,12 +67,12 @@ const ChatHistory = ({ isOpen, onClose, onLoadSession, onExportHistory }) => {
     try {
       setIsLoading(true);
       console.log("🔄 Loading session messages for:", sessionId);
-      const response = await fetch(
+      const response = await axios.get(
         `http://localhost:5000/api/chat-history/${sessionId}`
       );
 
-      if (response.ok) {
-        const data = await response.json();
+      if (response.status === 200) {
+        const data = await response.data;
         console.log("📊 Session messages data:", data);
         setSessionMessages(data.data.messages || []);
         setSelectedSession(sessions.find((s) => s.session_id === sessionId));
@@ -89,13 +90,13 @@ const ChatHistory = ({ isOpen, onClose, onLoadSession, onExportHistory }) => {
     if (!query.trim()) return;
 
     try {
-      const response = await fetch(
+      const response = await axios.get(
         `http://localhost:5000/api/chat-history/${sessionId}/search?query=${encodeURIComponent(
           query
         )}`
       );
-      if (response.ok) {
-        const data = await response.json();
+      if (response.status === 200) {
+        const data = await response.data;
         setSessionMessages(data.data.messages || []);
         setSelectedSession(sessions.find((s) => s.session_id === sessionId));
       }
@@ -114,14 +115,14 @@ const ChatHistory = ({ isOpen, onClose, onLoadSession, onExportHistory }) => {
     }
 
     try {
-      const response = await fetch(
+      const response = await axios.delete(
         `http://localhost:5000/api/chat-history/${sessionId}`,
         {
           method: "DELETE",
         }
       );
 
-      if (response.ok) {
+      if (response.status === 200) {
         // Remove from sessions list
         setSessions((prev) => prev.filter((s) => s.session_id !== sessionId));
 

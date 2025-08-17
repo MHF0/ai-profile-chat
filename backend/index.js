@@ -1,8 +1,6 @@
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
-const { createServer } = require("http");
-const { Server } = require("socket.io");
 const rateLimit = require("express-rate-limit");
 const dotenv = require("dotenv");
 const path = require("path");
@@ -17,13 +15,6 @@ const { connectDB } = require("./db");
 dotenv.config({ path: path.join(__dirname, ".env") });
 
 const app = express();
-const server = createServer(app);
-const io = new Server(server, {
-  cors: {
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
-    methods: ["GET", "POST"],
-  },
-});
 
 // Security middleware
 app.use(helmet());
@@ -221,51 +212,6 @@ app.get("/health", (req, res) => {
   });
 });
 
-// Socket.IO connection handling
-io.on("connection", (socket) => {
-  console.log("Client connected:", socket.id);
-
-  socket.emit("data-summary", {
-    message: "Welcome to AI Recruitment Chat!",
-    timestamp: new Date().toISOString(),
-  });
-
-  socket.on("chat-message", async (data) => {
-    try {
-      const { query } = data;
-      console.log("Received chat message:", query);
-
-      const allData = await dataLoader.getData();
-
-      // Create comprehensive context for AI
-      const chatQuery = {
-        query,
-        context: allData,
-      };
-
-      const aiResponse = await aiService.processQuery(chatQuery);
-
-      socket.emit("chat-response", {
-        id: Date.now().toString(),
-        text: aiResponse.response,
-        isUser: false,
-        timestamp: new Date(),
-        context_used: aiResponse.context_used,
-      });
-    } catch (error) {
-      console.error("❌ Socket error:", error.message);
-      socket.emit("error", {
-        message: "Failed to process message",
-        error: error.message,
-      });
-    }
-  });
-
-  socket.on("disconnect", () => {
-    console.log("Client disconnected:", socket.id);
-  });
-});
-
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error("❌ Error:", err.stack);
@@ -278,9 +224,9 @@ app.use((err, req, res, next) => {
 const startServer = async () => {
   try {
     await connectDB(); // Connect to MongoDB Atlas
-    const PORT = process.env.PORT || 5000; // Changed back to 5000
+    const PORT = process.env.PORT || 5000;
 
-    server.listen(PORT, () => {
+    app.listen(PORT, () => {
       console.log(`🚀 AI Recruitment Chat Backend running on port ${PORT}`);
     });
   } catch (error) {

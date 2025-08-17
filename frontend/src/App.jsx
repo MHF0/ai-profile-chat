@@ -8,7 +8,6 @@ import ProfileSearch from "./component/ProfileSearch";
 import QuickActions from "./component/QuickActions";
 import ChatHistory from "./component/ChatHistory";
 
-const SOCKET_URL = 'http://localhost:5000';
 const API_BASE_URL = "http://localhost:5000/api";
 
 const AIRecruitmentChat = () => {
