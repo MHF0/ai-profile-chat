@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import axios from "axios";
 
-const ChatHistory = ({ isOpen, onClose, onLoadSession, onExportHistory }) => {
+const ChatHistory = ({ isOpen, onClose, onLoadSession, onExportHistory, sessionId }) => {
   const [sessions, setSessions] = useState([]);
   const [selectedSession, setSelectedSession] = useState(null);
   const [sessionMessages, setSessionMessages] = useState([]);
@@ -197,6 +197,16 @@ const ChatHistory = ({ isOpen, onClose, onLoadSession, onExportHistory }) => {
 
       {/* Search and Filters */}
       <div className="space-y-4">
+        {/* Debug Info */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+          <div className="text-sm text-blue-800">
+            <strong>Debug Info:</strong>
+            <div>Current Session ID: {sessionId || 'None'}</div>
+            <div>Total Sessions: {sessions.length}</div>
+            <div>Selected Session: {selectedSession?.session_id || 'None'}</div>
+          </div>
+        </div>
+        
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input

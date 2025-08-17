@@ -27,11 +27,29 @@ const AIRecruitmentChat = () => {
   const messagesEndRef = useRef(null);
   const chatContainerRef = useRef(null);
 
-  // Generate session ID on component mount
+  // Generate or retrieve session ID on component mount
   useEffect(() => {
-    const newSessionId = generateSessionId();
-    setSessionId(newSessionId);
-    console.log(`🆔 New chat session: ${newSessionId}`);
+    // Try to get existing session ID from localStorage
+    const existingSessionId = localStorage.getItem('chat_session_id');
+    
+    console.log('🔍 localStorage check:', {
+      existingSessionId,
+      hasLocalStorage: !!localStorage.getItem('chat_session_id')
+    });
+    
+    // TEMPORARY: Use the known existing session ID for testing
+    const knownSessionId = 'session_1755433253169_gge7yjpap';
+    
+    if (existingSessionId) {
+      // Use existing session ID from localStorage
+      setSessionId(existingSessionId);
+      console.log(`🆔 Using existing chat session: ${existingSessionId}`);
+    } else {
+      // Use the known session ID from database
+      localStorage.setItem('chat_session_id', knownSessionId);
+      setSessionId(knownSessionId);
+      console.log(`🆔 Using known session ID: ${knownSessionId}`);
+    }
   }, []);
 
   // Load initial data
@@ -243,6 +261,7 @@ const AIRecruitmentChat = () => {
       if (response.ok) {
         setMessages([]);
         const newSessionId = generateSessionId();
+        localStorage.setItem('chat_session_id', newSessionId);
         setSessionId(newSessionId);
         console.log(`🆔 New chat session after clear: ${newSessionId}`);
       }
@@ -258,6 +277,7 @@ const AIRecruitmentChat = () => {
         const data = await response.json();
         if (data.data.messages && data.data.messages.length > 0) {
           setMessages(data.data.messages);
+          localStorage.setItem('chat_session_id', sessionId);
           setSessionId(sessionId);
           setShowHistory(false);
           setCurrentView("chat");
@@ -476,6 +496,7 @@ const AIRecruitmentChat = () => {
         onClose={() => setShowHistory(false)}
         onLoadSession={handleLoadSession}
         onExportHistory={exportChatHistory}
+        sessionId={sessionId}
       />
     </div>
   );
