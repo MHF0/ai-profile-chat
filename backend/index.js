@@ -8,6 +8,7 @@ const path = require("path");
 const chatRoutes = require("./routes/chat");
 const chatHistoryRoutes = require("./routes/chat-history");
 const jobChatRoutes = require("./routes/job-chat");
+const crmRoutes = require("./routes/crm");
 const { DataLoader } = require("./data/loader");
 const { AIService } = require("./services/ai-service");
 const { connectDB } = require("./db");
@@ -48,10 +49,11 @@ const dataLoader = DataLoader.getInstance();
 const aiService = new AIService();
 
 // Routes
-console.log("Registering routes: /api/chat, /api/chat-history, /api/job-chat, /api/data, /api/search, /health");
+console.log("Registering routes: /api/chat, /api/chat-history, /api/job-chat, /api/crm, /api/data, /api/search, /health");
 app.use("/api/chat", chatRoutes);
 app.use("/api/chat-history", chatHistoryRoutes);
 app.use("/api/job-chat", jobChatRoutes);
+app.use("/api/crm", crmRoutes);
 
 // New comprehensive data API endpoints
 app.get("/api/data/overview", async (req, res) => {

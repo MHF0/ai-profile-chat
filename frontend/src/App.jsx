@@ -1,5 +1,16 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Send, Bot, User, Search, BarChart3, MessageCircle, History, Download, Trash2 } from "lucide-react";
+import {
+  Send,
+  Bot,
+  User,
+  Search,
+  BarChart3,
+  MessageCircle,
+  History,
+  Download,
+  Trash2,
+  Plus,
+} from "lucide-react";
 import Header from "./component/Header";
 import Sidebar from "./component/Sidebar";
 import MessageBubble from "./component/MessageBubble";
@@ -32,23 +43,23 @@ const AIRecruitmentChat = () => {
   // Generate or retrieve session ID on component mount
   useEffect(() => {
     // Try to get existing session ID from localStorage
-    const existingSessionId = localStorage.getItem('chat_session_id');
-    
-    console.log('🔍 localStorage check:', {
+    const existingSessionId = localStorage.getItem("chat_session_id");
+
+    console.log("🔍 localStorage check:", {
       existingSessionId,
-      hasLocalStorage: !!localStorage.getItem('chat_session_id')
+      hasLocalStorage: !!localStorage.getItem("chat_session_id"),
     });
-    
+
     // TEMPORARY: Use the known existing session ID for testing
-    const knownSessionId = 'session_1755433253169_gge7yjpap';
-    
+    const knownSessionId = "session_1755433253169_gge7yjpap";
+
     if (existingSessionId) {
       // Use existing session ID from localStorage
       setSessionId(existingSessionId);
       console.log(`🆔 Using existing chat session: ${existingSessionId}`);
     } else {
       // Use the known session ID from database
-      localStorage.setItem('chat_session_id', knownSessionId);
+      localStorage.setItem("chat_session_id", knownSessionId);
       setSessionId(knownSessionId);
       console.log(`🆔 Using known session ID: ${knownSessionId}`);
     }
@@ -68,7 +79,9 @@ const AIRecruitmentChat = () => {
   }, [sessionId]);
 
   const generateSessionId = () => {
-    return 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    return (
+      "session_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9)
+    );
   };
 
   const loadInitialData = async () => {
@@ -76,7 +89,7 @@ const AIRecruitmentChat = () => {
       const [overviewRes, statsRes, searchableRes] = await Promise.all([
         fetch(`${API_BASE_URL}/data/overview`),
         fetch(`${API_BASE_URL}/data/statistics`),
-        fetch(`${API_BASE_URL}/data/searchable`)
+        fetch(`${API_BASE_URL}/data/searchable`),
       ]);
 
       if (overviewRes.ok) {
@@ -112,14 +125,16 @@ const AIRecruitmentChat = () => {
 
   const loadChatHistory = async () => {
     if (!sessionId) return;
-    
+
     try {
       const response = await fetch(`${API_BASE_URL}/chat-history/${sessionId}`);
       if (response.ok) {
         const data = await response.json();
         if (data.data.messages && data.data.messages.length > 0) {
           setMessages(data.data.messages);
-          console.log(`📚 Loaded ${data.data.messages.length} messages from history`);
+          console.log(
+            `📚 Loaded ${data.data.messages.length} messages from history`
+          );
         }
       }
     } catch (error) {
@@ -129,9 +144,9 @@ const AIRecruitmentChat = () => {
 
   const scrollToBottom = () => {
     if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ 
+      messagesEndRef.current.scrollIntoView({
         behavior: "smooth",
-        block: "end"
+        block: "end",
       });
     }
   };
@@ -151,13 +166,13 @@ const AIRecruitmentChat = () => {
       timestamp: new Date(),
     };
 
-    setMessages(prev => [...prev, userMessage]);
+    setMessages((prev) => [...prev, userMessage]);
     setInputValue("");
     setIsLoading(true);
 
     try {
       let response;
-      
+
       if (selectedJob) {
         // Use job-specific chat endpoint
         response = await fetch(`${API_BASE_URL}/job-chat/message`, {
@@ -168,7 +183,7 @@ const AIRecruitmentChat = () => {
           body: JSON.stringify({
             message: inputValue,
             session_id: sessionId,
-            job_id: selectedJob.uuid || selectedJob.id
+            job_id: selectedJob.uuid || selectedJob.id,
           }),
         });
       } else {
@@ -181,7 +196,7 @@ const AIRecruitmentChat = () => {
           body: JSON.stringify({
             query: inputValue,
             analysis_type: "general_query",
-            session_id: sessionId
+            session_id: sessionId,
           }),
         });
       }
@@ -194,7 +209,7 @@ const AIRecruitmentChat = () => {
           isUser: false,
           timestamp: new Date(),
         };
-        setMessages(prev => [...prev, aiMessage]);
+        setMessages((prev) => [...prev, aiMessage]);
       } else {
         throw new Error("Failed to get AI response");
       }
@@ -206,7 +221,7 @@ const AIRecruitmentChat = () => {
         isUser: false,
         timestamp: new Date(),
       };
-      setMessages(prev => [...prev, errorMessage]);
+      setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
     }
@@ -217,7 +232,7 @@ const AIRecruitmentChat = () => {
       setCurrentView("search");
       return;
     }
-    
+
     setInputValue(action);
     handleSubmit(new Event("submit"));
   };
@@ -225,42 +240,59 @@ const AIRecruitmentChat = () => {
   const handleJobSelection = async (job) => {
     setSelectedJob(job);
     setCurrentView("chat");
-    
+
     // Create a new job-specific chat session
     try {
       const response = await fetch(`${API_BASE_URL}/job-chat/sessions`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           job_id: job.uuid || job.id,
-          user_id: 'anonymous'
-        })
+          user_id: "anonymous",
+        }),
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         setSessionId(data.data.session_id);
-        
+
         // Clear existing messages and add job-specific welcome message
-        setMessages([{
-          id: Date.now().toString(),
-          text: `I'm now your AI recruitment assistant for the **${job.title}** position at **${job.company}**. I have complete access to this job's requirements and can help you with:\n\n• Job-specific questions and analysis\n• Candidate matching for this position\n• Requirements clarification\n• Interview preparation\n• Any recruitment-related queries\n\nWhat would you like to know about this job?`,
-          isUser: false,
-          timestamp: new Date(),
-          metadata: { job_id: job.uuid || job.id, type: 'job_welcome' }
-        }]);
+        setMessages([
+          {
+            id: Date.now().toString(),
+            text: `I'm now your AI recruitment assistant for the **${job.title}** position at **${job.company}**. I have complete access to this job's requirements and can help you with:\n\n• Job-specific questions and analysis\n• Candidate matching for this position\n• Requirements clarification\n• Interview preparation\n• Any recruitment-related queries\n\nWhat would you like to know about this job?`,
+            isUser: false,
+            timestamp: new Date(),
+            metadata: { job_id: job.uuid || job.id, type: "job_welcome" },
+          },
+        ]);
       }
     } catch (error) {
       console.error("❌ Error creating job chat session:", error);
     }
   };
 
+  const startNewChat = () => {
+    // Clear current job selection if any
+    setSelectedJob(null);
+    
+    // Generate new session ID
+    const newSessionId = generateSessionId();
+    localStorage.setItem("chat_session_id", newSessionId);
+    setSessionId(newSessionId);
+    
+    // Clear all messages
+    setMessages([]);
+    
+    console.log(`🆔 Started new chat session: ${newSessionId}`);
+  };
+
   const clearJobSelection = () => {
     setSelectedJob(null);
     // Reset to general chat session
-    const existingSessionId = localStorage.getItem('chat_session_id');
+    const existingSessionId = localStorage.getItem("chat_session_id");
     setSessionId(existingSessionId);
     setMessages([]);
   };
@@ -286,26 +318,30 @@ const AIRecruitmentChat = () => {
     }
   };
 
-  const exportChatHistory = async (format = 'json') => {
+  const exportChatHistory = async (format = "json") => {
     if (!sessionId) return;
-    
+
     try {
-      const response = await fetch(`${API_BASE_URL}/chat-history/${sessionId}/export?format=${format}`);
+      const response = await fetch(
+        `${API_BASE_URL}/chat-history/${sessionId}/export?format=${format}`
+      );
       if (response.ok) {
-        if (format === 'text') {
+        if (format === "text") {
           const text = await response.text();
-          const blob = new Blob([text], { type: 'text/plain' });
+          const blob = new Blob([text], { type: "text/plain" });
           const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
+          const a = document.createElement("a");
           a.href = url;
           a.download = `chat-history-${sessionId}.txt`;
           a.click();
           URL.revokeObjectURL(url);
         } else {
           const data = await response.json();
-          const blob = new Blob([JSON.stringify(data.data, null, 2)], { type: 'application/json' });
+          const blob = new Blob([JSON.stringify(data.data, null, 2)], {
+            type: "application/json",
+          });
           const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
+          const a = document.createElement("a");
           a.href = url;
           a.download = `chat-history-${sessionId}.json`;
           a.click();
@@ -318,17 +354,24 @@ const AIRecruitmentChat = () => {
   };
 
   const clearChatHistory = async () => {
-    if (!sessionId || !window.confirm('Are you sure you want to clear this chat session?')) return;
-    
+    if (
+      !sessionId ||
+      !window.confirm("Are you sure you want to clear this chat session?")
+    )
+      return;
+
     try {
-      const response = await fetch(`${API_BASE_URL}/chat-history/${sessionId}`, {
-        method: 'DELETE'
-      });
-      
+      const response = await fetch(
+        `${API_BASE_URL}/chat-history/${sessionId}`,
+        {
+          method: "DELETE",
+        }
+      );
+
       if (response.ok) {
         setMessages([]);
         const newSessionId = generateSessionId();
-        localStorage.setItem('chat_session_id', newSessionId);
+        localStorage.setItem("chat_session_id", newSessionId);
         setSessionId(newSessionId);
         console.log(`🆔 New chat session after clear: ${newSessionId}`);
       }
@@ -344,11 +387,13 @@ const AIRecruitmentChat = () => {
         const data = await response.json();
         if (data.data.messages && data.data.messages.length > 0) {
           setMessages(data.data.messages);
-          localStorage.setItem('chat_session_id', sessionId);
+          localStorage.setItem("chat_session_id", sessionId);
           setSessionId(sessionId);
           setShowHistory(false);
           setCurrentView("chat");
-          console.log(`📚 Loaded session ${sessionId} with ${data.data.messages.length} messages`);
+          console.log(
+            `📚 Loaded session ${sessionId} with ${data.data.messages.length} messages`
+          );
         }
       }
     } catch (error) {
@@ -380,15 +425,27 @@ const AIRecruitmentChat = () => {
                       </>
                     ) : (
                       <>
-                        <h2 className="text-lg font-semibold text-gray-900">AI Recruitment Chat</h2>
-                        <p className="text-sm text-gray-500">Ask me anything about recruitment or just chat!</p>
+                        <h2 className="text-lg font-semibold text-gray-900">
+                          AI Recruitment Chat
+                        </h2>
+                        <p className="text-sm text-gray-500">
+                          Ask me anything about recruitment or just chat!
+                        </p>
                       </>
                     )}
                   </div>
                 </div>
-                
+
                 {/* Chat History Controls */}
                 <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => startNewChat()}
+                    className="px-3 py-2 text-sm text-white bg-gradient-to-r from-purple-500 to-blue-600 hover:from-purple-600 hover:to-blue-700 rounded-lg transition-all duration-200 flex items-center space-x-2 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+                    title="Start New Chat"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>New Chat</span>
+                  </button>
                   {selectedJob && (
                     <button
                       onClick={clearJobSelection}
@@ -406,7 +463,7 @@ const AIRecruitmentChat = () => {
                     <History className="w-5 h-5" />
                   </button>
                   <button
-                    onClick={() => exportChatHistory('json')}
+                    onClick={() => exportChatHistory("json")}
                     className="p-2 text-gray-600 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                     title="Export as JSON"
                   >
@@ -424,12 +481,12 @@ const AIRecruitmentChat = () => {
             </div>
 
             {/* Messages Container */}
-            <div 
+            <div
               ref={chatContainerRef}
               className="flex-1 overflow-y-auto bg-gradient-to-br from-gray-50 to-blue-50"
-              style={{ 
-                scrollbarWidth: 'thin',
-                scrollbarColor: '#CBD5E1 #F1F5F9'
+              style={{
+                scrollbarWidth: "thin",
+                scrollbarColor: "#CBD5E1 #F1F5F9",
               }}
             >
               <div className="min-h-full p-6">
@@ -438,12 +495,15 @@ const AIRecruitmentChat = () => {
                     <div className="w-20 h-20 bg-gradient-to-r from-purple-100 to-blue-100 rounded-full flex items-center justify-center mb-6">
                       <Bot className="w-10 h-10 text-purple-600" />
                     </div>
-                    <h3 className="text-2xl font-semibold mb-3 text-gray-700">Welcome to AI Recruitment Chat!</h3>
+                    <h3 className="text-2xl font-semibold mb-3 text-gray-700">
+                      Welcome to AI Recruitment Chat!
+                    </h3>
                     <p className="text-lg text-gray-400 max-w-md leading-relaxed">
-                      I'm here to help you with recruitment insights, candidate analysis, or just friendly conversation. 
-                      What would you like to know?
+                      I'm here to help you with recruitment insights, candidate
+                      analysis, or just friendly conversation. What would you
+                      like to know?
                     </p>
-                    
+
                     {/* Quick Start Suggestions */}
                     <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-3 max-w-2xl w-full">
                       {suggestions.slice(0, 6).map((suggestion, index) => (
@@ -462,7 +522,7 @@ const AIRecruitmentChat = () => {
                     {messages.map((message) => (
                       <MessageBubble key={message.id} message={message} />
                     ))}
-                    
+
                     {isLoading && (
                       <div className="flex justify-start">
                         <div className="bg-white border border-gray-200 rounded-2xl px-6 py-4 shadow-lg max-w-md">
@@ -471,14 +531,22 @@ const AIRecruitmentChat = () => {
                               <Bot className="w-4 h-4 text-white" />
                             </div>
                             <div>
-                              <p className="text-sm font-medium text-gray-900">AI Recruiter</p>
+                              <p className="text-sm font-medium text-gray-900">
+                                AI Recruiter
+                              </p>
                               <p className="text-xs text-gray-500">Typing...</p>
                             </div>
                           </div>
                           <div className="flex space-x-1">
                             <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                            <div
+                              className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                              style={{ animationDelay: "0.1s" }}
+                            ></div>
+                            <div
+                              className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                              style={{ animationDelay: "0.2s" }}
+                            ></div>
                           </div>
                         </div>
                       </div>
@@ -498,9 +566,10 @@ const AIRecruitmentChat = () => {
                       type="text"
                       value={inputValue}
                       onChange={(e) => setInputValue(e.target.value)}
-                      placeholder={selectedJob 
-                        ? `Ask me about the ${selectedJob.title} position at ${selectedJob.company}...`
-                        : "Ask me anything about recruitment or just chat..."
+                      placeholder={
+                        selectedJob
+                          ? `Ask me about the ${selectedJob.title} position at ${selectedJob.company}...`
+                          : "Ask me anything about recruitment or just chat..."
                       }
                       className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-700 placeholder-gray-400 transition-all duration-200"
                       disabled={isLoading}
@@ -518,14 +587,13 @@ const AIRecruitmentChat = () => {
                     <span>Send</span>
                   </button>
                 </div>
-                
+
                 {/* Input Tips */}
                 <div className="mt-3 text-center">
                   <p className="text-xs text-gray-400">
-                    {selectedJob 
+                    {selectedJob
                       ? `💡 Try: "What skills are required?" • "Find candidates for this role" • "What's the salary range?"`
-                      : `💡 Try: "Show me top candidates" • "Find Python developers" • "How are you?"`
-                    }
+                      : `💡 Try: "Show me top candidates" • "Find Python developers" • "How are you?"`}
                   </p>
                 </div>
               </form>
@@ -572,7 +640,7 @@ const AIRecruitmentChat = () => {
         onViewChange={setCurrentView}
         onMenuClick={() => setSidebarOpen(true)}
       />
-      
+
       <div className="flex h-screen pt-16">
         <Sidebar
           isOpen={sidebarOpen}
@@ -581,11 +649,9 @@ const AIRecruitmentChat = () => {
           suggestions={suggestions}
           dataOverview={dataOverview}
         />
-        
-        <main className="flex-1 flex flex-col">
-          {renderCurrentView()}
-        </main>
-        
+
+        <main className="flex-1 flex flex-col">{renderCurrentView()}</main>
+
         <QuickActions
           suggestions={suggestions}
           onAction={handleQuickAction}

@@ -17,6 +17,10 @@ router.get("/suggestions", (req, res) => {
     "Find Python developers",
     "Compare candidates",
     "Skills overview",
+    "Move top 5 candidates to CRM",
+    "Show candidates in CRM",
+    "Show CRM statistics",
+    "Filter CRM candidates by 80% fit",
     "How are you?"
   ];
 

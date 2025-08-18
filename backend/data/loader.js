@@ -52,6 +52,7 @@ class DataLoader {
           ai_summary: summaryEntry?.matched?.full_profile?.summary || "No AI summary available",
           fit_percentage: summaryEntry?.fit_percentage || 0,
           ai_analysis: summaryEntry?.matched || {},
+          moved: summaryEntry?.moved || 0,
           
           // Enhanced skills analysis
           skills: profile.skills || [],

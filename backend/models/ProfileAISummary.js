@@ -8,7 +8,7 @@ const profileAISummarySchema = new mongoose.Schema({
   createdAt: Date,
   updatedAt: Date,
   job_flow_id: String,
-  moved: String,
+  moved: { type: Number, default: 0 }, // 0 = not moved, 1 = moved to CRM
   relevant_months: String,
   open_to_work: String,
   fit_percentage: Number,

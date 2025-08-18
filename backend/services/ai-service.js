@@ -1,4 +1,5 @@
 const OpenAI = require("openai");
+const { CRMService } = require("./crm-service");
 
 class AIService {
   constructor(jobInfo = null) {
@@ -20,6 +21,9 @@ class AIService {
     // Set job-specific or general system prompt
     this.jobInfo = jobInfo;
     this.systemPrompt = this.buildSystemPrompt();
+    
+    // Initialize CRM service
+    this.crmService = new CRMService();
   }
 
   buildSystemPrompt() {
@@ -65,7 +69,18 @@ Your capabilities include:
 - Analyzing skills distribution, location trends, and industry insights
 - Finding specific candidates or jobs based on detailed criteria
 - Providing comprehensive recruitment insights and recommendations
+- **CRM Management**: Move candidates to/from CRM, filter by CRM status, get CRM statistics
 - Answering general questions and casual conversation
+
+**CRM Commands You Can Handle:**
+- "Move [candidate name] to CRM" - Move specific candidate to CRM
+- "Move all candidates to CRM" - Move all candidates to CRM
+- "Move top 5 candidates to CRM" - Move top 5 candidates by fit percentage
+- "Move candidates with Python skills to CRM" - Move candidates with specific skills
+- "Show candidates in CRM" - Display candidates currently in CRM
+- "Show candidates not in CRM" - Display candidates not in CRM
+- "Filter CRM candidates by 80% fit" - Filter CRM candidates by criteria
+- "Show CRM statistics" - Display CRM overview and metrics
 
 When answering recruitment-related questions:
 - Use the comprehensive database data provided
@@ -88,6 +103,12 @@ You are now the most knowledgeable recruitment AI available - use your comprehen
   async processQuery(query) {
     try {
       console.log("🤖 Processing AI query:", query.query);
+      
+      // Check for CRM commands first
+      const crmResult = await this.handleCRMCommands(query.query, query.context);
+      if (crmResult) {
+        return crmResult;
+      }
       
       const context = this.buildSimpleContext(query);
       const userPrompt = this.buildSimplePrompt(query, context);
@@ -362,6 +383,355 @@ INSTRUCTIONS:
 - You can answer ANY question about candidates, jobs, skills, locations, industries, companies, or trends
 
 Answer the user's question using your comprehensive knowledge of the recruitment database.`;
+  }
+
+  /**
+   * Handle CRM-related commands from AI chat
+   * @param {string} query - The user's query
+   * @param {Object} context - The data context
+   * @returns {Object|null} CRM result or null if not a CRM command
+   */
+  async handleCRMCommands(query, context) {
+    try {
+      const lowerQuery = query.toLowerCase();
+      
+      // Check for move to CRM commands
+      if (lowerQuery.includes('move') && (lowerQuery.includes('crm') || lowerQuery.includes('to crm'))) {
+        return await this.handleMoveToCRMCommand(query, context);
+      }
+      
+      // Check for CRM filtering commands
+      if (lowerQuery.includes('filter') && (lowerQuery.includes('crm') || lowerQuery.includes('moved'))) {
+        return await this.handleCRMFilterCommand(query, context);
+      }
+      
+      // Check for CRM statistics commands
+      if (lowerQuery.includes('crm') && (lowerQuery.includes('stats') || lowerQuery.includes('statistics') || lowerQuery.includes('overview'))) {
+        return await this.handleCRMStatsCommand();
+      }
+      
+      // Check for show candidates in/not in CRM
+      if (lowerQuery.includes('show') && lowerQuery.includes('crm')) {
+        return await this.handleShowCRMCommand(query, context);
+      }
+      
+      return null; // Not a CRM command
+    } catch (error) {
+      console.error("❌ Error handling CRM commands:", error.message);
+      return {
+        response: `❌ Error processing CRM command: ${error.message}`,
+        query: query,
+        timestamp: new Date().toISOString(),
+        crm_action: true
+      };
+    }
+  }
+
+  /**
+   * Handle move to CRM commands
+   */
+  async handleMoveToCRMCommand(query, context) {
+    try {
+      const lowerQuery = query.toLowerCase();
+      const profiles = context?.profiles || [];
+      
+      // Extract candidate names or IDs from the query
+      const candidateIdentifiers = this.extractCandidateIdentifiers(query, profiles);
+      
+      if (candidateIdentifiers.length === 0) {
+        return {
+          response: `❌ **No candidates found to move to CRM.**\n\nPlease specify which candidate(s) you'd like to move. You can use:\n- Full name\n- Partial name\n- "all" for all candidates\n- "top 5" for top 5 candidates\n- Specific skills or criteria`,
+          query: query,
+          timestamp: new Date().toISOString(),
+          crm_action: true
+        };
+      }
+      
+      let result;
+      if (candidateIdentifiers.length === 1) {
+        result = await this.crmService.moveToCRM(candidateIdentifiers[0]);
+      } else {
+        result = await this.crmService.moveMultipleToCRM(candidateIdentifiers);
+      }
+      
+      if (result.success) {
+        const candidateNames = this.getCandidateNames(candidateIdentifiers, profiles);
+        return {
+          response: `✅ **Successfully moved ${result.candidates_moved || 1} candidate(s) to CRM!**\n\n**Candidates moved:**\n${candidateNames.map(name => `- ${name}`).join('\n')}\n\n**CRM Status:** ${result.candidates_moved || 1} candidate(s) now in CRM pipeline.`,
+          query: query,
+          timestamp: new Date().toISOString(),
+          crm_action: true,
+          crm_result: result
+        };
+      } else {
+        return {
+          response: `❌ **Failed to move candidates to CRM:** ${result.error}`,
+          query: query,
+          timestamp: new Date().toISOString(),
+          crm_action: true
+        };
+      }
+    } catch (error) {
+      console.error("❌ Error in move to CRM command:", error.message);
+      return {
+        response: `❌ **Error processing move to CRM command:** ${error.message}`,
+        query: query,
+        timestamp: new Date().toISOString(),
+        crm_action: true
+      };
+    }
+  }
+
+  /**
+   * Handle CRM filtering commands
+   */
+  async handleCRMFilterCommand(query, context) {
+    try {
+      const filters = this.extractFiltersFromQuery(query);
+      const result = await this.crmService.getCandidatesByStatus(filters);
+      
+      if (result.success) {
+        const filterDescription = this.describeFilters(filters);
+        const candidateList = this.formatCandidateList(result.candidates);
+        
+        return {
+          response: `🔍 **CRM Filter Results**\n\n**Filters applied:** ${filterDescription}\n\n**Found ${result.candidates.length} candidates:**\n${candidateList}\n\n**Summary:**\n- Total candidates: ${result.total}\n- In CRM: ${result.moved_count}\n- Not in CRM: ${result.not_moved_count}`,
+          query: query,
+          timestamp: new Date().toISOString(),
+          crm_action: true,
+          crm_result: result
+        };
+      } else {
+        return {
+          response: `❌ **Failed to filter CRM candidates:** ${result.error}`,
+          query: query,
+          timestamp: new Date().toISOString(),
+          crm_action: true
+        };
+      }
+    } catch (error) {
+      console.error("❌ Error in CRM filter command:", error.message);
+      return {
+        response: `❌ **Error processing CRM filter command:** ${error.message}`,
+        query: query,
+        timestamp: new Date().toISOString(),
+        crm_action: true
+      };
+    }
+  }
+
+  /**
+   * Handle CRM statistics commands
+   */
+  async handleCRMStatsCommand() {
+    try {
+      const result = await this.crmService.getCRMStatistics();
+      
+      if (result.success) {
+        const stats = result.statistics;
+        const recentList = result.recent_movements.map(movement => 
+          `- ${movement.uuid} (${new Date(movement.updatedAt).toLocaleDateString()})`
+        ).join('\n');
+        
+        return {
+          response: `📊 **CRM Statistics Overview**\n\n**Current Status:**\n- Total candidates: ${stats.total_candidates}\n- Moved to CRM: ${stats.moved_to_crm}\n- Not moved: ${stats.not_moved}\n- CRM percentage: ${stats.crm_percentage}%\n\n**Recent CRM Movements:**\n${recentList}\n\n**CRM Pipeline:** ${stats.moved_to_crm} candidates are currently in your CRM pipeline.`,
+          query: "Show CRM statistics",
+          timestamp: new Date().toISOString(),
+          crm_action: true,
+          crm_result: result
+        };
+      } else {
+        return {
+          response: `❌ **Failed to get CRM statistics:** ${result.error}`,
+          query: "Show CRM statistics",
+          timestamp: new Date().toISOString(),
+          crm_action: true
+        };
+      }
+    } catch (error) {
+      console.error("❌ Error in CRM stats command:", error.message);
+      return {
+        response: `❌ **Error getting CRM statistics:** ${error.message}`,
+        query: "Show CRM statistics",
+        timestamp: new Date().toISOString(),
+        crm_action: true
+      };
+    }
+  }
+
+  /**
+   * Handle show CRM candidates commands
+   */
+  async handleShowCRMCommand(query, context) {
+    try {
+      const lowerQuery = query.toLowerCase();
+      let filters = { moved: 1 }; // Default to show candidates in CRM
+      
+      if (lowerQuery.includes('not in') || lowerQuery.includes('not moved')) {
+        filters.moved = 0;
+      }
+      
+      // Extract additional filters
+      const additionalFilters = this.extractFiltersFromQuery(query);
+      Object.assign(filters, additionalFilters);
+      
+      const result = await this.crmService.getCandidatesByStatus(filters);
+      
+      if (result.success) {
+        const statusText = filters.moved === 1 ? "in CRM" : "not in CRM";
+        const candidateList = this.formatCandidateList(result.candidates);
+        
+        return {
+          response: `👥 **Candidates ${statusText}**\n\n**Found ${result.candidates.length} candidates:**\n${candidateList}\n\n**Total ${statusText}:** ${filters.moved === 1 ? result.moved_count : result.not_moved_count}`,
+          query: query,
+          timestamp: new Date().toISOString(),
+          crm_action: true,
+          crm_result: result
+        };
+      } else {
+        return {
+          response: `❌ **Failed to get CRM candidates:** ${result.error}`,
+          query: query,
+          timestamp: new Date().toISOString(),
+          crm_action: true
+        };
+      }
+    } catch (error) {
+      console.error("❌ Error in show CRM command:", error.message);
+      return {
+        response: `❌ **Error showing CRM candidates:** ${error.message}`,
+        query: query,
+        timestamp: new Date().toISOString(),
+        crm_action: true
+      };
+    }
+  }
+
+  /**
+   * Extract candidate identifiers from query
+   */
+  extractCandidateIdentifiers(query, profiles) {
+    const lowerQuery = query.toLowerCase();
+    const identifiers = [];
+    
+    // Check for "all" command
+    if (lowerQuery.includes('all') || lowerQuery.includes('everyone')) {
+      return profiles.map(p => p.uuid);
+    }
+    
+    // Check for "top N" command
+    const topMatch = lowerQuery.match(/top\s+(\d+)/);
+    if (topMatch) {
+      const topN = parseInt(topMatch[1]);
+      const sortedProfiles = profiles
+        .filter(p => p.fit_percentage > 0)
+        .sort((a, b) => b.fit_percentage - a.fit_percentage)
+        .slice(0, topN);
+      return sortedProfiles.map(p => p.uuid);
+    }
+    
+    // Check for specific names
+    for (const profile of profiles) {
+      if (profile.name && lowerQuery.includes(profile.name.toLowerCase())) {
+        identifiers.push(profile.uuid);
+      }
+    }
+    
+    // Check for skills-based selection
+    if (lowerQuery.includes('with') && lowerQuery.includes('skills')) {
+      const skillMatch = lowerQuery.match(/with\s+([a-zA-Z\s]+)\s+skills/);
+      if (skillMatch) {
+        const skill = skillMatch[1].trim().toLowerCase();
+        const matchingProfiles = profiles.filter(p => 
+          p.skills && p.skills.some(s => s.toLowerCase().includes(skill))
+        );
+        return matchingProfiles.map(p => p.uuid);
+      }
+    }
+    
+    return identifiers;
+  }
+
+  /**
+   * Extract filters from query
+   */
+  extractFiltersFromQuery(query) {
+    const filters = {};
+    const lowerQuery = query.toLowerCase();
+    
+    // Fit percentage filter
+    const fitMatch = lowerQuery.match(/(\d+)%?\s*fit/);
+    if (fitMatch) {
+      filters.min_fit_percentage = parseInt(fitMatch[1]);
+    }
+    
+    // Experience filter
+    const expMatch = lowerQuery.match(/(\d+)\s*years?/);
+    if (expMatch) {
+      filters.experience_years = parseInt(expMatch[1]);
+    }
+    
+    // Industry filter
+    const industryMatch = lowerQuery.match(/industry[:\s]+([a-zA-Z\s]+)/);
+    if (industryMatch) {
+      filters.industry = industryMatch[1].trim();
+    }
+    
+    // Location filter
+    const locationMatch = lowerQuery.match(/location[:\s]+([a-zA-Z\s]+)/);
+    if (locationMatch) {
+      filters.location = locationMatch[1].trim();
+    }
+    
+    return filters;
+  }
+
+  /**
+   * Get candidate names from UUIDs
+   */
+  getCandidateNames(uuids, profiles) {
+    return uuids.map(uuid => {
+      const profile = profiles.find(p => p.uuid === uuid);
+      return profile ? profile.name : uuid;
+    });
+  }
+
+  /**
+   * Describe filters in human-readable format
+   */
+  describeFilters(filters) {
+    const descriptions = [];
+    
+    if (filters.moved !== undefined) {
+      descriptions.push(filters.moved === 1 ? "In CRM" : "Not in CRM");
+    }
+    if (filters.min_fit_percentage) {
+      descriptions.push(`Min fit: ${filters.min_fit_percentage}%`);
+    }
+    if (filters.experience_years) {
+      descriptions.push(`Min experience: ${filters.experience_years} years`);
+    }
+    if (filters.industry) {
+      descriptions.push(`Industry: ${filters.industry}`);
+    }
+    if (filters.location) {
+      descriptions.push(`Location: ${filters.location}`);
+    }
+    
+    return descriptions.length > 0 ? descriptions.join(", ") : "No specific filters";
+  }
+
+  /**
+   * Format candidate list for display
+   */
+  formatCandidateList(candidates) {
+    if (candidates.length === 0) return "No candidates found";
+    
+    return candidates.slice(0, 10).map((candidate, index) => {
+      const fitText = candidate.fit_percentage ? ` (${candidate.fit_percentage}% fit)` : "";
+      const movedText = candidate.moved === 1 ? " ✅ CRM" : "";
+      return `${index + 1}. ${candidate.uuid}${fitText}${movedText}`;
+    }).join('\n') + (candidates.length > 10 ? `\n... and ${candidates.length - 10} more` : "");
   }
 
   // Simple helper methods
